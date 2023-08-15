@@ -1,6 +1,6 @@
 #![no_std]
 
-//! This crate provides a ST7735 driver to connect to TFT displays.
+//! This crate provides a GC9106 driver to connect to TFT displays.
 
 pub mod instruction;
 
@@ -10,8 +10,8 @@ use embedded_hal::blocking::delay::DelayMs;
 use embedded_hal::blocking::spi;
 use embedded_hal::digital::v2::OutputPin;
 
-/// ST7735 driver to connect to TFT displays.
-pub struct ST7735<SPI, DC, RST>
+/// GC9106 driver to connect to TFT displays.
+pub struct GC9106<SPI, DC, RST>
 where
     SPI: spi::Write<u8>,
     DC: OutputPin,
@@ -25,9 +25,6 @@ where
 
     /// Reset pin.
     rst: RST,
-
-    /// Whether the display is RGB (true) or BGR (false)
-    rgb: bool,
 
     /// Whether the colours are inverted (true) or not (false)
     inverted: bool,
@@ -48,7 +45,7 @@ pub enum Orientation {
     LandscapeSwapped = 0xA0,
 }
 
-impl<SPI, DC, RST> ST7735<SPI, DC, RST>
+impl<SPI, DC, RST> GC9106<SPI, DC, RST>
 where
     SPI: spi::Write<u8>,
     DC: OutputPin,
@@ -59,16 +56,14 @@ where
         spi: SPI,
         dc: DC,
         rst: RST,
-        rgb: bool,
         inverted: bool,
         width: u32,
         height: u32,
     ) -> Self {
-        let display = ST7735 {
+        let display = GC9106 {
             spi,
             dc,
             rst,
-            rgb,
             inverted,
             dx: 0,
             dy: 0,
@@ -86,32 +81,41 @@ where
     {
         self.hard_reset(delay)?;
         self.write_command(Instruction::SWRESET, &[])?;
-        delay.delay_ms(200);
-        self.write_command(Instruction::SLPOUT, &[])?;
-        delay.delay_ms(200);
-        self.write_command(Instruction::FRMCTR1, &[0x01, 0x2C, 0x2D])?;
-        self.write_command(Instruction::FRMCTR2, &[0x01, 0x2C, 0x2D])?;
-        self.write_command(Instruction::FRMCTR3, &[0x01, 0x2C, 0x2D, 0x01, 0x2C, 0x2D])?;
-        self.write_command(Instruction::INVCTR, &[0x07])?;
-        self.write_command(Instruction::PWCTR1, &[0xA2, 0x02, 0x84])?;
-        self.write_command(Instruction::PWCTR2, &[0xC5])?;
-        self.write_command(Instruction::PWCTR3, &[0x0A, 0x00])?;
-        self.write_command(Instruction::PWCTR4, &[0x8A, 0x2A])?;
-        self.write_command(Instruction::PWCTR5, &[0x8A, 0xEE])?;
-        self.write_command(Instruction::VMCTR1, &[0x0E])?;
+        delay.delay_ms(150);
+        self.write_command(Instruction::IREN1, &[])?;
+        self.write_command(Instruction::IREN1, &[])?;
+        self.write_command(Instruction::IREN1, &[])?;
+        self.write_command(Instruction::IREN2, &[])?;
+        self.write_command(Instruction::ACCESSF0F1, &[0x03])?;
+        self.write_command(Instruction::MADCTL, &[0xd8])?;
+        self.write_command(Instruction::COLMOD, &[0x05])?;
+        self.write_command(Instruction::DISFUNCTL, &[0x11])?;
+        self.write_command(Instruction::LLEN, &[0x0b])?;
+        self.write_command(Instruction::INVCTR, &[0x21])?;
+        self.write_command(Instruction::ACCESSC0C1C2C3C6, &[0x00])?;
+        self.write_command(Instruction::ACCESSE4EB, &[0x00])?;
+        self.write_command(Instruction::ACCESSE6E7, &[0xc0])?;
+        self.write_command(Instruction::VREG1CTR, &[0x50, 0x43])?;
+        self.write_command(Instruction::VREG2CTR, &[0x56, 0x43])?;
+        self.write_command(Instruction::GAMMASET1, &[0x1f, 0x41, 0x1B, 0x55, 0x36, 0x3d, 0x3e, 0x0, 0x16, 0x08, 0x09, 0x15, 0x14, 0xf])?;
+        self.write_command(Instruction::GAMMASET2, &[0x1f, 0x41, 0x1B, 0x55, 0x36, 0x3d, 0x3e, 0x0, 0x16, 0x08, 0x09, 0x15, 0x14, 0xf])?;
+        self.write_command(Instruction::TEON, &[0x00])?;
+        self.write_command(Instruction::SCANLINESET, &[0x00])?;
+        self.write_command(Instruction::SLPOUT, &[0x00])?;
+        self.write_command(Instruction::DISPON, &[])?;
+        self.write_command(Instruction::CASET, &[0x00, 0x18, 0x00, 0x67])?;
+        self.write_command(Instruction::RASET, &[0x00, 0x00, 0x00, 0x9f])?;
+        self.write_command(Instruction::SLPOUT, &[0x80])?;
+        delay.delay_ms(150);
+        self.write_command(Instruction::DISPON, &[0x80])?;
+        delay.delay_ms(150);
         if self.inverted {
             self.write_command(Instruction::INVON, &[])?;
         } else {
             self.write_command(Instruction::INVOFF, &[])?;
         }
-        if self.rgb {
-            self.write_command(Instruction::MADCTL, &[0x00])?;
-        } else {
-            self.write_command(Instruction::MADCTL, &[0x08])?;
-        }
         self.write_command(Instruction::COLMOD, &[0x05])?;
         self.write_command(Instruction::DISPON, &[])?;
-        delay.delay_ms(200);
         Ok(())
     }
 
@@ -166,11 +170,7 @@ where
     }
 
     pub fn set_orientation(&mut self, orientation: &Orientation) -> Result<(), ()> {
-        if self.rgb {
-            self.write_command(Instruction::MADCTL, &[*orientation as u8])?;
-        } else {
-            self.write_command(Instruction::MADCTL, &[*orientation as u8 | 0x08])?;
-        }
+        self.write_command(Instruction::MADCTL, &[*orientation as u8 | 0x08])?;
         Ok(())
     }
 
@@ -258,7 +258,7 @@ use self::embedded_graphics::{
 };
 
 #[cfg(feature = "graphics")]
-impl<SPI, DC, RST> DrawTarget for ST7735<SPI, DC, RST>
+impl<SPI, DC, RST> DrawTarget for GC9106<SPI, DC, RST>
 where
     SPI: spi::Write<u8>,
     DC: OutputPin,
@@ -325,7 +325,7 @@ where
 }
 
 #[cfg(feature = "graphics")]
-impl<SPI, DC, RST> OriginDimensions for ST7735<SPI, DC, RST>
+impl<SPI, DC, RST> OriginDimensions for GC9106<SPI, DC, RST>
 where
     SPI: spi::Write<u8>,
     DC: OutputPin,

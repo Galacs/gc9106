@@ -1,13 +1,13 @@
 [package]
-name = "st7735-lcd"
-description = "ST7735 TFT LCD driver with embedded-graphics support"
+name = "gc9106"
+description = "GC9106 TFT LCD driver with embedded-graphics support"
 version = "0.9.0"
-authors = ["Paul Sajna <sajattack@gmail.com>"]
+authors = ["Paul Sajna <sajattack@gmail.com>", "Rémi Ait-Younes <remi@ait-younes.fr>"]
 edition = "2018"
 license = "MIT"
-repository = "https://github.com/sajattack/st7735-lcd-rs"
+repository = "https://github.com/galacs/gc9106"
 readme = "README.md"
-documentation = "https://docs.rs/st7735-lcd"
+documentation = "https://docs.rs/gc9106"
 
 [dependencies]
 embedded-hal = "0.2"
